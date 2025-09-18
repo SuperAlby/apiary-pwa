@@ -1,10 +1,10 @@
-// MODIFICA: Importiamo "tutto" (*) dalla libreria in un unico oggetto chiamato 'supabase'
-import * as supabase from 'supabase';
+// MODIFICA: Non importiamo più nulla da 'supabase'
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js';
 import * as db from './db.js';
 
-// MODIFICA: Creiamo il client usando la funzione dall'oggetto che abbiamo importato
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// MODIFICA: Accediamo alla variabile globale 'supabase' creata dal tag <script> in index.html
+const { createClient } = supabase;
+const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentApiary = null;
 let currentHive = null;
 
@@ -50,8 +50,7 @@ const selectApiary = (apiary) => {
     DOMElements.hivesSection.classList.remove('hidden');
     DOMElements.inspectionsSection.classList.add('hidden');
     DOMElements.currentApiaryName.textContent = apiary.name;
-    renderApiaries(); // Ri-renderizza per mostrare la selezione 'active'
-    // Aggiungi qui la logica per caricare e mostrare gli alveari
+    renderApiaries();
 };
 
 // --- LOGICA DI RENDER ---
@@ -94,13 +93,13 @@ const syncAndFetchData = async () => {
 
 // --- AUTENTICAZIONE ---
 
-const handleAuthStateChange = async (event, session) => {
+const handleAuthStateChange = (event, session) => {
     if (session) {
         showView('app');
         DOMElements.authForms.classList.add('hidden');
         DOMElements.authLogged.classList.remove('hidden');
         DOMElements.userEmail.textContent = session.user.email;
-        await syncAndFetchData();
+        syncAndFetchData();
     } else {
         showView('auth');
         DOMElements.authForms.classList.remove('hidden');
