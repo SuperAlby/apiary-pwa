@@ -1,6 +1,6 @@
 const DB_NAME = 'apiary-pwa-db';
 const DB_VERSION = 1;
-const STORES = ['apiaries', 'hives', 'inspections', 'outbox'];
+const STORES = ['apiaries', 'hives', 'inspections']; // Rimosso 'outbox'
 let db;
 
 export const init = () => {
@@ -22,23 +22,17 @@ export const init = () => {
   });
 };
 
+// Funzione 'save' semplificata
 export const save = (storeName, item) => {
-  return new Promise(async (resolve, reject) => {
+  return new Promise((resolve, reject) => {
     if (!item.id) item.id = `offline_${Date.now()}_${Math.random()}`;
     
-    // Salva l'oggetto nello store principale
-    const tx1 = db.transaction(storeName, 'readwrite');
-    const store1 = tx1.objectStore(storeName);
-    store1.put(item);
-    await new Promise(r => tx1.oncomplete = r);
-    
-    // Salva l'operazione nell'outbox
-    const outboxItem = { id: `outbox_${Date.now()}`, store: storeName, data: item };
-    const tx2 = db.transaction('outbox', 'readwrite');
-    const store2 = tx2.objectStore('outbox');
-    store2.put(outboxItem);
-    tx2.oncomplete = () => resolve(item);
-    tx2.onerror = (e) => reject(`Errore nel salvare in outbox: ${e.target.error}`);
+    const tx = db.transaction(storeName, 'readwrite');
+    const store = tx.objectStore(storeName);
+    store.put(item);
+
+    tx.oncomplete = () => resolve(item);
+    tx.onerror = (e) => reject(`Errore nel salvare in ${storeName}: ${e.target.error}`);
   });
 };
 
@@ -52,8 +46,9 @@ export const getAll = (storeName) => {
   });
 };
 
+// Questa funzione non è più usata nella modalità senza login, ma la lasciamo per il futuro
 export const clearAndInsert = async (storeName, items) => {
-  return new Promise(async (resolve, reject) => {
+  return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, 'readwrite');
     const store = tx.objectStore(storeName);
     store.clear();
@@ -62,33 +57,3 @@ export const clearAndInsert = async (storeName, items) => {
     tx.onerror = (e) => reject(`Errore bulk insert in ${storeName}: ${e.target.error}`);
   });
 }
-
-export const sync = async (supabase) => {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return false; // Non sincronizzare se l'utente non è loggato
-
-  const outboxItems = await getAll('outbox');
-  if (outboxItems.length === 0) return true;
-
-  for (const item of outboxItems) {
-    const dataToInsert = { ...item.data };
-    
-    // Se l'ID è un placeholder offline, rimuovilo prima di inserire
-    if (String(dataToInsert.id).startsWith('offline_')) {
-      delete dataToInsert.id;
-    }
-    
-    const { error } = await supabase.from(item.store).upsert(dataToInsert);
-
-    if (error) {
-      console.error('Sync error:', error);
-      return false; // Interrompi alla prima fallita
-    } else {
-      // Rimuovi l'elemento dall'outbox solo se ha avuto successo
-      const tx = db.transaction('outbox', 'readwrite');
-      tx.objectStore('outbox').delete(item.id);
-      await new Promise(r => tx.oncomplete = r);
-    }
-  }
-  return true;
-};
