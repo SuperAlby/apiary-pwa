@@ -1,7 +1,6 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js';
 import * as db from './db.js';
 
-// Accediamo alla variabile globale 'supabase' creata dal tag <script> in index.html
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentApiary = null;
@@ -49,7 +48,7 @@ const selectApiary = async (apiary) => {
     DOMElements.inspectionsSection.classList.add('hidden');
     DOMElements.currentApiaryName.textContent = apiary.name;
     await renderApiaries();
-    await renderHives(); // NUOVO: Mostra gli alveari per l'apiario selezionato
+    await renderHives();
 };
 
 const selectHive = async (hive) => {
@@ -57,7 +56,7 @@ const selectHive = async (hive) => {
     DOMElements.inspectionsSection.classList.remove('hidden');
     DOMElements.currentHiveCode.textContent = hive.code;
     await renderHives();
-    // Prossimo passo: renderInspections()
+    await renderInspections();
 };
 
 // --- LOGICA DI RENDER ---
@@ -94,11 +93,24 @@ const renderHives = async () => {
     });
 };
 
+const renderInspections = async () => {
+    if (!currentHive) return;
+    const allInspections = await db.getAll('inspections');
+    const inspectionsOfHive = allInspections.filter(i => i.hive_id === currentHive.id).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+
+    DOMElements.inspectionsList.innerHTML = '';
+    inspectionsOfHive.forEach(insp => {
+        const li = document.createElement('li');
+        const visited = new Date(insp.visited_at || insp.created_at).toLocaleDateString();
+        li.innerHTML = `Visita del ${visited} - 👑: ${insp.queen_seen ? '✔️' : '❌'}, 🥚: ${insp.eggs ? '✔️' : '❌'}`;
+        DOMElements.inspectionsList.appendChild(li);
+    });
+};
+
 // --- GESTIONE DATI ---
 const syncAndFetchData = async () => {
     DOMElements.status.textContent = 'Sincronizzazione...';
-    const success = await db.sync(supabaseClient);
-    if (!success) DOMElements.status.textContent = 'Sincronizzazione fallita';
+    await db.sync(supabaseClient);
     
     DOMElements.status.textContent = 'Caricamento dati...';
     const tables = ['apiaries', 'hives', 'inspections'];
@@ -107,15 +119,15 @@ const syncAndFetchData = async () => {
         if (error) {
             console.error(`Errore nel caricare ${table}:`, error);
             DOMElements.status.textContent = 'Errore caricamento';
-            return; // Interrompi se c'è un errore
+            return;
         } else {
             await db.clearAndInsert(table, data);
         }
     }
     DOMElements.status.textContent = 'Online';
     await renderApiaries();
-    // Se un apiario era già selezionato, ricarica i suoi alveari
     if (currentApiary) await renderHives();
+    if (currentHive) await renderInspections();
 };
 
 // --- AUTENTICAZIONE ---
@@ -130,7 +142,7 @@ const handleAuthStateChange = (event, session) => {
         showView('auth');
         DOMElements.authForms.classList.remove('hidden');
         DOMElements.authLogged.classList.add('hidden');
-        currentApiary = null; // Resetta lo stato quando si fa logout
+        currentApiary = null;
         currentHive = null;
     }
 };
@@ -159,36 +171,13 @@ DOMElements.btnLogout.addEventListener('click', async () => {
 
 DOMElements.formApiary.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) return alert('Devi essere loggato per aggiungere un apiario.');
+
     const name = DOMElements.apiaryNameInput.value.trim();
     if (!name) return;
     
-    await db.save('apiaries', { name });
+    // MODIFICA CHIAVE: Aggiungo lo user_id
+    await db.save('apiaries', { name, user_id: user.id });
     DOMElements.apiaryNameInput.value = '';
-    await syncAndFetchData();
-});
-
-DOMElements.formHive.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!currentApiary) {
-        alert('Seleziona prima un apiario!');
-        return;
-    }
-    const code = DOMElements.hiveCodeInput.value.trim();
-    if (!code) return;
-
-    await db.save('hives', { apiary_id: currentApiary.id, code });
-    DOMElements.hiveCodeInput.value = '';
-    await syncAndFetchData();
-});
-
-// --- INIZIALIZZAZIONE ---
-const init = async () => {
-    await db.init();
-    
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    handleAuthStateChange(null, session);
-
-    supabaseClient.auth.onAuthStateChange(handleAuthStateChange);
-};
-
-init();
+    await syncAnd
