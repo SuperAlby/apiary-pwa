@@ -2,7 +2,7 @@ import { createClient } from 'supabase';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js';
 import * as db from './db.js';
 
-// MODIFICA: Creiamo il client Supabase ma non lo useremo per l'autenticazione
+// MODIFICA: Questa è la riga corretta
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentApiary = null;
 let currentHive = null;
@@ -165,7 +165,6 @@ const init = async () => {
     window.addEventListener('online', updateStatus);
     window.addEventListener('offline', updateStatus);
     
-    // MODIFICA: Carichiamo subito gli apiari salvati localmente
     await renderApiaries(); 
 };
 
