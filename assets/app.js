@@ -2,7 +2,8 @@ import { createClient } from 'supabase';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js';
 import * as db from './db.js';
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); // <-- ECCO LA RIGA CORRETTA
+// MODIFICA: Creiamo il client Supabase ma non lo useremo per l'autenticazione
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentApiary = null;
 let currentHive = null;
 
@@ -12,7 +13,7 @@ const DOMElements = {
     authContainer: document.getElementById('auth-container'),
     appContent: document.getElementById('app-content'),
 
-    // Autenticazione
+    // Autenticazione (non usati in questa versione)
     authForms: document.getElementById('auth-forms'),
     authLogged: document.getElementById('auth-logged'),
     userEmail: document.getElementById('user-email'),
@@ -46,7 +47,6 @@ const DOMElements = {
     formInspection: document.getElementById('form-inspection'),
     inspectionsList: document.getElementById('inspections-list'),
 };
-
 
 // --- LOGICA DI RENDER ---
 
@@ -83,22 +83,17 @@ const renderHives = async (apiaryId) => {
 
 const renderInspections = async (hiveId) => {
     const allInspections = await db.getAll('inspections');
-    const inspections = allInspections.filter(i => i.hive_id === hiveId).sort((a,b) => new Date(b.visited_at) - new Date(a.visited_at));
+    const inspections = allInspections.filter(i => i.hive_id === hiveId).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
     DOMElements.inspectionsList.innerHTML = '';
     inspections.forEach(insp => {
         const li = document.createElement('li');
-        const visited = new Date(insp.visited_at).toLocaleDateString();
+        const visited = new Date(insp.created_at).toLocaleDateString();
         li.textContent = `Visita del ${visited} - Regina: ${insp.queen_seen ? '✔️' : '❌'}, Uova: ${insp.eggs ? '✔️' : '❌'}`;
         DOMElements.inspectionsList.appendChild(li);
     });
 };
 
 // --- LOGICA DI VISUALIZZAZIONE ---
-
-const showView = (view) => {
-    DOMElements.authContainer.classList.toggle('hidden', view !== 'auth');
-    DOMElements.appContent.classList.toggle('hidden', view !== 'app');
-};
 
 const selectApiary = (apiary) => {
     currentApiary = apiary;
@@ -119,94 +114,24 @@ const selectHive = (hive) => {
     renderInspections(hive.id);
 };
 
-
-// --- GESTIONE DATI ---
-
-const fetchAllData = async () => {
-    const tables = ['apiaries', 'hives', 'inspections'];
-    for (const table of tables) {
-        const { data, error } = await supabase.from(table).select('*');
-        if (!error) {
-            await db.clearAndInsert(table, data);
-        } else {
-            console.error(`Error fetching ${table}:`, error);
-            updateStatus(false, 'Errore caricamento dati.');
-        }
-    }
-    await renderApiaries();
-};
-
-const syncData = async () => {
-    updateStatus(true, 'Sincronizzazione...');
-    const success = await db.sync(supabase);
-    if (success) {
-        await fetchAllData();
-        updateStatus(true, 'Online');
-    } else {
-        updateStatus(false, 'Sincronizzazione fallita.');
-    }
-};
-
-
-// --- AUTENTICAZIONE ---
-
-const handleAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-        showView('app');
-        DOMElements.authForms.classList.add('hidden');
-        DOMElements.authLogged.classList.remove('hidden');
-        DOMElements.userEmail.textContent = session.user.email;
-        await fetchAllData();
-        syncData();
-    } else {
-        showView('auth');
-        DOMElements.authForms.classList.remove('hidden');
-        DOMElements.authLogged.classList.add('hidden');
-    }
-};
-
-// --- EVENT LISTENERS ---
-
-DOMElements.btnLogin.addEventListener('click', async () => {
-    const { error } = await supabase.auth.signInWithPassword({
-        email: DOMElements.emailInput.value,
-        password: DOMElements.passwordInput.value,
-    });
-    if (error) alert(error.message);
-});
-
-DOMElements.btnSignup.addEventListener('click', async () => {
-    const { error } = await supabase.auth.signUp({
-        email: DOMElements.emailInput.value,
-        password: DOMElements.passwordInput.value,
-    });
-    if (error) alert(error.message);
-    else alert('Controlla la tua email per il link di conferma!');
-});
-
-DOMElements.btnLogout.addEventListener('click', async () => {
-    await supabase.auth.signOut();
-});
+// --- EVENT LISTENERS (SOLO PER I FORM) ---
 
 DOMElements.formApiary.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = DOMElements.apiaryNameInput.value.trim();
     if (!name) return;
-    await db.save('apiaries', { name });
+    await db.save('apiaries', { name, created_at: new Date().toISOString() });
     DOMElements.formApiary.reset();
     await renderApiaries();
-    syncData();
 });
 
 DOMElements.formHive.addEventListener('submit', async (e) => {
     e.preventDefault();
     const code = DOMElements.hiveCodeInput.value.trim();
     if (!code || !currentApiary) return;
-    await db.save('hives', { apiary_id: currentApiary.id, code });
+    await db.save('hives', { apiary_id: currentApiary.id, code, created_at: new Date().toISOString() });
     DOMElements.formHive.reset();
     await renderHives(currentApiary.id);
-    syncData();
 });
 
 DOMElements.formInspection.addEventListener('submit', async (e) => {
@@ -215,44 +140,33 @@ DOMElements.formInspection.addEventListener('submit', async (e) => {
     const form = e.target;
     const inspection = {
         hive_id: currentHive.id,
-        visited_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
         queen_seen: form.querySelector('#queen-seen').checked,
         eggs: form.querySelector('#eggs').checked,
-        frames_bees: form.querySelector('#frames-bees').valueAsNumber,
-        stores_kg: form.querySelector('#stores-kg').valueAsNumber,
+        frames_bees: form.querySelector('#frames-bees').valueAsNumber || 0,
+        stores_kg: form.querySelector('#stores-kg').valueAsNumber || 0,
     };
     await db.save('inspections', inspection);
     form.reset();
     await renderInspections(currentHive.id);
-    syncData();
 });
-
 
 // --- INIZIALIZZAZIONE ---
 
-const updateStatus = (online, text = '') => {
-    if (online) {
-        DOMElements.status.textContent = text || (navigator.onLine ? 'Online' : 'Online');
-        DOMElements.status.style.color = navigator.onLine ? 'lightgreen' : 'orange';
-    } else {
-        DOMElements.status.textContent = text || 'Errore';
-        DOMElements.status.style.color = 'salmon';
-    }
+const updateStatus = () => {
+    const online = navigator.onLine;
+    DOMElements.status.textContent = online ? 'Online (Sincronizzazione Disattivata)' : 'Offline';
+    DOMElements.status.style.color = online ? 'orange' : 'salmon';
 };
-
-window.addEventListener('online', () => { updateStatus(true); syncData(); });
-window.addEventListener('offline', () => updateStatus(true, 'Offline'));
 
 const init = async () => {
     await db.init();
-    updateStatus(true);
-
-    supabase.auth.onAuthStateChange((event, session) => {
-        // Ricarica la pagina al login/logout per resettare lo stato
-        window.location.reload();
-    });
-
-    handleAuth();
+    updateStatus();
+    window.addEventListener('online', updateStatus);
+    window.addEventListener('offline', updateStatus);
+    
+    // MODIFICA: Carichiamo subito gli apiari salvati localmente
+    await renderApiaries(); 
 };
 
 init();
