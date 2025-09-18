@@ -1,13 +1,13 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js';
 import * as db from './db.js';
 
-// Accediamo alla variabile globale 'supabase' creata dal tag <script> in index.html
+// Access the global 'supabase' variable created by the script tag in index.html
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentApiary = null;
 let currentHive = null;
 
-// --- Elementi DOM ---
+// --- DOM Elements ---
 const DOMElements = {
     authContainer: document.getElementById('auth-container'),
     appContent: document.getElementById('app-content'),
@@ -35,7 +35,7 @@ const DOMElements = {
     inspectionsList: document.getElementById('inspections-list'),
 };
 
-// --- LOGICA DI VISUALIZZAZIONE ---
+// --- View Logic ---
 const showView = (view) => {
     DOMElements.authContainer.classList.toggle('hidden', view !== 'auth');
     DOMElements.appContent.classList.toggle('hidden', view !== 'app');
@@ -60,7 +60,7 @@ const selectHive = async (hive) => {
     await renderInspections();
 };
 
-// --- LOGICA DI RENDER ---
+// --- Render Logic ---
 const renderApiaries = async () => {
     const apiaries = await db.getAll('apiaries');
     DOMElements.apiariesList.innerHTML = '';
@@ -108,7 +108,7 @@ const renderInspections = async () => {
     });
 };
 
-// --- GESTIONE DATI ---
+// --- Data Management ---
 const syncAndFetchData = async () => {
     DOMElements.status.textContent = 'Sincronizzazione...';
     await db.sync(supabaseClient);
@@ -118,7 +118,7 @@ const syncAndFetchData = async () => {
     for (const table of tables) {
         const { data, error } = await supabaseClient.from(table).select('*');
         if (error) {
-            console.error(`Errore nel caricare ${table}:`, error);
+            console.error(`Error loading ${table}:`, error);
             DOMElements.status.textContent = 'Errore caricamento';
             return;
         } else {
@@ -131,7 +131,7 @@ const syncAndFetchData = async () => {
     if (currentHive) await renderInspections();
 };
 
-// --- AUTENTICAZIONE ---
+// --- Authentication ---
 const handleAuthStateChange = (event, session) => {
     if (session) {
         showView('app');
@@ -148,7 +148,7 @@ const handleAuthStateChange = (event, session) => {
     }
 };
 
-// --- EVENT LISTENERS ---
+// --- Event Listeners ---
 DOMElements.btnLogin.addEventListener('click', async () => {
     const { error } = await supabaseClient.auth.signInWithPassword({
         email: DOMElements.emailInput.value,
@@ -163,7 +163,7 @@ DOMElements.btnSignup.addEventListener('click', async () => {
         password: DOMElements.passwordInput.value,
     });
     if (error) alert(error.message);
-    else alert('Account creato! Ora puoi fare il Sign in.');
+    else alert('Account created! You can now Sign in.');
 });
 
 DOMElements.btnLogout.addEventListener('click', async () => {
@@ -173,11 +173,12 @@ DOMElements.btnLogout.addEventListener('click', async () => {
 DOMElements.formApiary.addEventListener('submit', async (e) => {
     e.preventDefault();
     const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) return alert('Devi essere loggato per aggiungere un apiario.');
+    if (!user) return alert('You must be logged in to add an apiary.');
 
     const name = DOMElements.apiaryNameInput.value.trim();
     if (!name) return;
     
+    // KEY CHANGE: Adding the user_id
     await db.save('apiaries', { name, user_id: user.id });
     DOMElements.apiaryNameInput.value = '';
     await syncAndFetchData();
@@ -191,6 +192,7 @@ DOMElements.formHive.addEventListener('submit', async (e) => {
     const code = DOMElements.hiveCodeInput.value.trim();
     if (!code) return;
 
+    // KEY CHANGE: Adding the user_id
     await db.save('hives', { apiary_id: currentApiary.id, code, user_id: user.id });
     DOMElements.hiveCodeInput.value = '';
     await syncAndFetchData();
@@ -204,7 +206,7 @@ DOMElements.formInspection.addEventListener('submit', async (e) => {
     const form = e.target;
     const inspectionData = {
         hive_id: currentHive.id,
-        user_id: user.id,
+        user_id: user.id, // KEY CHANGE: Adding the user_id
         visited_at: new Date().toISOString(),
         queen_seen: form.querySelector('#queen-seen').checked,
         eggs: form.querySelector('#eggs').checked,
@@ -217,7 +219,7 @@ DOMElements.formInspection.addEventListener('submit', async (e) => {
     await syncAndFetchData();
 });
 
-// --- INIZIALIZZAZIONE ---
+// --- Initialization ---
 const init = async () => {
     await db.init();
     
@@ -228,5 +230,3 @@ const init = async () => {
 };
 
 init();
-
-// ASSICURATI DI AVER COPIATO FINO A QUI
