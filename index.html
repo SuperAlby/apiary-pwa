@@ -19,6 +19,28 @@
   <div class="layout">
     <!-- Sidebar -->
     <aside class="sidebar">
+      <h2>Autenticazione</h2>
+      <div id="auth-forms">
+        <div class="form-row">
+          <label>Email</label>
+          <input id="email" type="email" placeholder="you@example.com" autocomplete="username" />
+        </div>
+        <div class="form-row">
+          <label>Password</label>
+          <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <div class="btn-row">
+          <button id="btn-signup">Sign up</button>
+          <button id="btn-login" class="primary">Sign in</button>
+        </div>
+      </div>
+      <div class="btn-row hidden" id="auth-logged">
+        <span id="user-email"></span>
+        <button id="btn-logout" class="danger">Sign out</button>
+      </div>
+
+      <hr/>
+
       <h2>Apiari</h2>
       <form id="form-apiary" class="inline-form narrow">
         <input id="apiary-name" type="text" placeholder="Nome apiario" required />
