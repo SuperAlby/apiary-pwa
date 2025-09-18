@@ -1,31 +1,48 @@
-// MODIFICA 1: Importa l'oggetto principale 'supabase'
-import supabase from 'supabase';
+import { createClient } from 'supabase';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js';
 import * as db from './db.js';
 
-// MODIFICA 2: Estrai la funzione 'createClient' dall'oggetto importato
-const { createClient } = supabase;
-
-// MODIFICA 3: Crea il client e lo salva in una nuova variabile (es. supabaseClient)
-const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Questa è la riga corretta
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentApiary = null;
 let currentHive = null;
 
 // --- Elementi DOM ---
 const DOMElements = {
+    // Contenitori principali
     authContainer: document.getElementById('auth-container'),
     appContent: document.getElementById('app-content'),
+
+    // Autenticazione (non usati in questa versione)
+    authForms: document.getElementById('auth-forms'),
+    authLogged: document.getElementById('auth-logged'),
+    userEmail: document.getElementById('user-email'),
+    emailInput: document.getElementById('email'),
+    passwordInput: document.getElementById('password'),
+    btnLogin: document.getElementById('btn-login'),
+    btnSignup: document.getElementById('btn-signup'),
+    btnLogout: document.getElementById('btn-logout'),
+
+    // Status
     status: document.getElementById('status'),
+
+    // Apiari
     formApiary: document.getElementById('form-apiary'),
     apiaryNameInput: document.getElementById('apiary-name'),
     apiariesList: document.getElementById('apiaries-list'),
+
+    // Sezioni principali
     welcomeMessage: document.getElementById('welcome-message'),
     hivesSection: document.getElementById('hives-section'),
     inspectionsSection: document.getElementById('inspections-section'),
+
+    // Alveari
     currentApiaryName: document.getElementById('current-apiary-name'),
     formHive: document.getElementById('form-hive'),
     hiveCodeInput: document.getElementById('hive-code'),
     hivesList: document.getElementById('hives-list'),
+
+    // Ispezioni
     currentHiveCode: document.getElementById('current-hive-code'),
     formInspection: document.getElementById('form-inspection'),
     inspectionsList: document.getElementById('inspections-list'),
