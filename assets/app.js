@@ -36,7 +36,6 @@ const DOMElements = {
 };
 
 // --- LOGICA DI VISUALIZZAZIONE ---
-
 const showView = (view) => {
     DOMElements.authContainer.classList.toggle('hidden', view !== 'auth');
     DOMElements.appContent.classList.toggle('hidden', view !== 'app');
@@ -53,7 +52,6 @@ const selectApiary = (apiary) => {
 };
 
 // --- LOGICA DI RENDER ---
-
 const renderApiaries = async () => {
     const apiaries = await db.getAll('apiaries');
     DOMElements.apiariesList.innerHTML = '';
@@ -70,7 +68,6 @@ const renderApiaries = async () => {
 };
 
 // --- GESTIONE DATI ---
-
 const syncAndFetchData = async () => {
     DOMElements.status.textContent = 'Sincronizzazione...';
     const success = await db.sync(supabaseClient);
@@ -91,7 +88,6 @@ const syncAndFetchData = async () => {
 };
 
 // --- AUTENTICAZIONE ---
-
 const handleAuthStateChange = (event, session) => {
     if (session) {
         showView('app');
@@ -106,9 +102,7 @@ const handleAuthStateChange = (event, session) => {
     }
 };
 
-
 // --- EVENT LISTENERS ---
-
 DOMElements.btnLogin.addEventListener('click', async () => {
     const { error } = await supabaseClient.auth.signInWithPassword({
         email: DOMElements.emailInput.value,
@@ -123,7 +117,7 @@ DOMElements.btnSignup.addEventListener('click', async () => {
         password: DOMElements.passwordInput.value,
     });
     if (error) alert(error.message);
-    else alert('Account creato! Ora puoi fare il Sign in.'); // Messaggio leggermente modificato
+    else alert('Account creato! Ora puoi fare il Sign in.');
 });
 
 DOMElements.btnLogout.addEventListener('click', async () => {
@@ -141,17 +135,13 @@ DOMElements.formApiary.addEventListener('submit', async (e) => {
     await syncAndFetchData();
 });
 
-
 // --- INIZIALIZZAZIONE ---
-
 const init = async () => {
     await db.init();
     
-    // Controlla subito la sessione al caricamento della pagina
     const { data: { session } } = await supabaseClient.auth.getSession();
     handleAuthStateChange(null, session);
 
-    // E poi rimane in ascolto per i cambi di stato futuri (login/logout)
     supabaseClient.auth.onAuthStateChange(handleAuthStateChange);
 };
 
