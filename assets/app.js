@@ -1,8 +1,7 @@
-// MODIFICA: Non importiamo più nulla da 'supabase'
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js';
 import * as db from './db.js';
 
-// MODIFICA: Accediamo alla variabile globale 'supabase' creata dal tag <script> in index.html
+// Accediamo alla variabile globale 'supabase' creata dal tag <script> in index.html
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentApiary = null;
@@ -124,7 +123,7 @@ DOMElements.btnSignup.addEventListener('click', async () => {
         password: DOMElements.passwordInput.value,
     });
     if (error) alert(error.message);
-    else alert('Controlla la tua email per il link di conferma!');
+    else alert('Account creato! Ora puoi fare il Sign in.'); // Messaggio leggermente modificato
 });
 
 DOMElements.btnLogout.addEventListener('click', async () => {
@@ -147,6 +146,12 @@ DOMElements.formApiary.addEventListener('submit', async (e) => {
 
 const init = async () => {
     await db.init();
+    
+    // Controlla subito la sessione al caricamento della pagina
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    handleAuthStateChange(null, session);
+
+    // E poi rimane in ascolto per i cambi di stato futuri (login/logout)
     supabaseClient.auth.onAuthStateChange(handleAuthStateChange);
 };
 
