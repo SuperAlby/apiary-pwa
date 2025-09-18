@@ -1,9 +1,10 @@
-import supabase from 'supabase';
+// MODIFICA: Importiamo "tutto" (*) dalla libreria in un unico oggetto chiamato 'supabase'
+import * as supabase from 'supabase';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js';
 import * as db from './db.js';
 
-const { createClient } = supabase;
-const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// MODIFICA: Creiamo il client usando la funzione dall'oggetto che abbiamo importato
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentApiary = null;
 let currentHive = null;
 
@@ -77,7 +78,6 @@ const syncAndFetchData = async () => {
     const success = await db.sync(supabaseClient);
     if (!success) {
         DOMElements.status.textContent = 'Sincronizzazione fallita';
-        // Non bloccare l'UI, carica i dati locali
     }
 
     DOMElements.status.textContent = 'Caricamento dati...';
@@ -96,14 +96,12 @@ const syncAndFetchData = async () => {
 
 const handleAuthStateChange = async (event, session) => {
     if (session) {
-        // Utente loggato
         showView('app');
         DOMElements.authForms.classList.add('hidden');
         DOMElements.authLogged.classList.remove('hidden');
         DOMElements.userEmail.textContent = session.user.email;
         await syncAndFetchData();
     } else {
-        // Utente non loggato
         showView('auth');
         DOMElements.authForms.classList.remove('hidden');
         DOMElements.authLogged.classList.add('hidden');
@@ -141,8 +139,8 @@ DOMElements.formApiary.addEventListener('submit', async (e) => {
     
     await db.save('apiaries', { name });
     DOMElements.apiaryNameInput.value = '';
-    await renderApiaries(); // Aggiorna subito la lista locale
-    await syncAndFetchData(); // Tenta la sincronizzazione
+    await renderApiaries(); 
+    await syncAndFetchData();
 });
 
 
