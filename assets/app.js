@@ -2,7 +2,7 @@ import { createClient } from 'supabase';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js';
 import * as db from './db.js';
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); // <-- ECCO LA RIGA CORRETTA
 let currentApiary = null;
 let currentHive = null;
 
@@ -232,7 +232,7 @@ DOMElements.formInspection.addEventListener('submit', async (e) => {
 
 const updateStatus = (online, text = '') => {
     if (online) {
-        DOMElements.status.textContent = text || (navigator.onLine ? 'Online' : 'Offline');
+        DOMElements.status.textContent = text || (navigator.onLine ? 'Online' : 'Online');
         DOMElements.status.style.color = navigator.onLine ? 'lightgreen' : 'orange';
     } else {
         DOMElements.status.textContent = text || 'Errore';
@@ -241,14 +241,17 @@ const updateStatus = (online, text = '') => {
 };
 
 window.addEventListener('online', () => { updateStatus(true); syncData(); });
-window.addEventListener('offline', () => updateStatus(true));
+window.addEventListener('offline', () => updateStatus(true, 'Offline'));
 
 const init = async () => {
     await db.init();
     updateStatus(true);
+
     supabase.auth.onAuthStateChange((event, session) => {
-        handleAuth();
+        // Ricarica la pagina al login/logout per resettare lo stato
+        window.location.reload();
     });
+
     handleAuth();
 };
 
