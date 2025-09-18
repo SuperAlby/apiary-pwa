@@ -16,31 +16,9 @@
     <div id="status" class="status">...</div>
   </header>
 
-  <main class="container">
-    <section id="auth-section" class="card">
-      <h2>Autenticazione</h2>
-      <div id="auth-forms">
-        <div class="form-row">
-          <label>Email</label>
-          <input id="email" type="email" placeholder="you@example.com" autocomplete="username" />
-        </div>
-        <div class="form-row">
-          <label>Password</label>
-          <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
-        </div>
-        <div class="btn-row">
-          <button id="btn-signup">Sign up</button>
-          <button id="btn-login" class="primary">Sign in</button>
-        </div>
-      </div>
-      <div class="btn-row hidden" id="auth-logged">
-        <span id="user-email"></span>
-        <button id="btn-logout" class="danger">Sign out</button>
-      </div>
-      <p class="help">Suggerimento: per i test puoi disabilitare la conferma email in Supabase (Authentication → Providers → Email).</p>
-    </section>
-
-    <section id="app-section" class="card hidden">
+<main class="container-grid">
+  <aside id="sidebar">
+    <div class="sidebar-content">
       <h2>Apiari</h2>
       <form id="form-apiary" class="inline-form">
         <input id="apiary-name" type="text" placeholder="Nome apiario" required />
@@ -50,9 +28,11 @@
         <button type="submit" class="primary">+ Aggiungi</button>
       </form>
       <ul id="apiaries-list" class="list"></ul>
+    </div>
+  </aside>
 
-      <hr/>
-
+  <div id="main-content">
+    <section id="app-section" class="card">
       <div id="hives-section" class="subsection hidden">
         <h3>Alveari nell'apiario: <span id="current-apiary-name"></span></h3>
         <form id="form-hive" class="inline-form">
@@ -76,9 +56,15 @@
         </form>
         <ul id="inspections-list" class="list"></ul>
       </div>
-    </section>
-  </main>
 
+      <div id="welcome-message">
+        <p>👋 Seleziona un apiario dalla lista a sinistra per vedere gli alveari, oppure creane uno nuovo.</p>
+      </div>
+    </section>
+  </div>
+</main>
+
+  
   <footer class="app-footer">
     <small>Starter PWA · Offline-first · Supabase</small>
   </footer>
