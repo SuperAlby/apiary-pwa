@@ -23,36 +23,3 @@ button:disabled { opacity: .6; cursor: not-allowed; }
 .btn-row { display:flex; gap:8px; align-items:center; }
 .help { color: var(--muted); margin-top: 8px; }
 hr { border: none; border-top: 1px solid #334155; margin: 16px 0; }
-
-
-/* --- Sidebar layout --- */
-.app-shell { display:flex; min-height: calc(100vh - 120px); /* header+footer approx */ }
-.sidebar { width: 280px; background: #f6f7f9; border-right: 1px solid #e5e7eb; padding: 12px; overflow-y:auto; position: sticky; top: 0; align-self: flex-start; max-height: calc(100vh - 120px); }
-.content { flex:1; padding: 0 16px; }
-.sidebar-header { display:flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-.full { width: 100%; }
-.list.compact li { display:flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; }
-.list.compact li.active { background:#e6fffb; }
-.sidebar .actions { display:flex; gap:6px; }
-.sidebar .actions button { padding: 4px 8px; }
-@media (max-width: 900px){
-  .app-shell{ flex-direction: column; }
-  .sidebar{ width: 100%; position: relative; max-height: none; border-right: 0; border-bottom: 1px solid #e5e7eb; }
-}
-
-
-/* --- Sidebar layout --- */
-.layout { display: grid; grid-template-columns: 280px 1fr; gap: 16px; max-width: 1200px; margin: 20px auto; padding: 0 16px; }
-.sidebar { background: var(--card); padding: 12px; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.25); }
-.content { min-height: 60vh; }
-.inline-form.narrow input { flex: 1 1 100%; }
-.list.compact li { padding: 10px; }
-.sidebar .list li { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
-.sidebar .apiary-item-title { cursor: pointer; display:block; }
-.sidebar .row-actions { display: flex; gap: 6px; }
-.btn-icon { border:1px solid #334155; background:#1f2937; border-radius:8px; padding:6px 8px; cursor:pointer; }
-.btn-icon.danger { background: var(--danger); color: #052525; }
-@media (max-width: 900px) {
-  .layout { grid-template-columns: 1fr; }
-  .sidebar { order: -1; }
-}

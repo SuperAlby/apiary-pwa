@@ -1,5 +1,5 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY, APP_NAME } from '../config.js';
-import { openDB, idbPut, idbGetAll, outboxAdd, outboxAll, outboxClear, idbDelete } from './db.js';
+import { openDB, idbPut, idbGetAll, outboxAdd, outboxAll, outboxClear } from './db.js';
 
 const statusEl = document.getElementById('status');
 const authSection = document.getElementById('auth-section');
@@ -10,8 +10,6 @@ const userEmail = document.getElementById('user-email');
 document.getElementById('app-title').textContent = `🐝 ${APP_NAME}`;
 
 const apiariesList = document.getElementById('apiaries-list');
-const sidebarApiaries = document.getElementById('sidebar-apiaries');
-const btnAddApiary = document.getElementById('btn-add-apiary');
 const formApiary = document.getElementById('form-apiary');
 const formHive = document.getElementById('form-hive');
 const formInspection = document.getElementById('form-inspection');
@@ -184,56 +182,24 @@ async function upsertRemote(table, payload) {
   }
 }
 
-
 function renderApiaries(items) {
   apiariesList.innerHTML = '';
   items.sort((a,b) => (a.created_at||'').localeCompare(b.created_at||''));
-
   for (const a of items) {
     const li = document.createElement('li');
-
-    const title = document.createElement('a');
-    title.textContent = a.name;
-    title.className = 'apiary-item-title';
-    title.href = '#';
-    title.onclick = (e) => { e.preventDefault(); selectApiary(a); };
-
-    const meta = document.createElement('div');
-    meta.className = 'badge';
-    meta.textContent = `${a.lat ?? '-'}, ${a.lon ?? '-'}`;
-
     const left = document.createElement('div');
-    left.appendChild(title);
-    left.appendChild(meta);
-    if (a.note) {
-      const small = document.createElement('small');
-      small.textContent = a.note;
-      left.appendChild(document.createElement('br'));
-      left.appendChild(small);
-    }
-
-    const actions = document.createElement('div');
-    actions.className = 'row-actions';
-    const openBtn = document.createElement('button');
-    openBtn.textContent = 'Apri';
-    openBtn.className = 'primary';
-    openBtn.onclick = () => selectApiary(a);
-
-    const delBtn = document.createElement('button');
-    delBtn.textContent = '🗑';
-    delBtn.title = 'Elimina';
-    delBtn.className = 'btn-icon danger';
-    delBtn.onclick = () => deleteApiary(a);
-
-    actions.appendChild(openBtn);
-    actions.appendChild(delBtn);
-
+    left.innerHTML = `<strong>${a.name}</strong> <span class="badge">${a.lat ?? '-'}, ${a.lon ?? '-'}</span><br><small>${a.note ?? ''}</small>`;
+    const right = document.createElement('div');
+    const btn = document.createElement('button');
+    btn.textContent = 'Apri';
+    btn.className = 'primary';
+    btn.onclick = () => selectApiary(a);
+    right.appendChild(btn);
     li.appendChild(left);
-    li.appendChild(actions);
+    li.appendChild(right);
     apiariesList.appendChild(li);
   }
 }
-
 
 function renderHives(items) {
   hivesList.innerHTML = '';
@@ -252,42 +218,6 @@ function renderHives(items) {
   }
 }
 
-
-
-async function deleteApiary(a) {
-  if (!confirm(`Eliminare l'apiario "${a.name}"?`)) return;
-  try {
-    // Online required for remote delete (per evitare inconsistenze offline)
-    if (!navigator.onLine) {
-      alert('Eliminazione disponibile solo online per ora.');
-      return;
-    }
-    // Remote delete
-    const { error } = await supabase.from('apiaries').delete().eq('id', a.id);
-    if (error) throw error;
-
-    // Local cleanup: remove apiary + related hives/inspections
-    const allHives = await idbGetAll('hives');
-    const toDeleteHives = allHives.filter(h => h.apiary_id === a.id).map(h => h.id);
-    for (const hid of toDeleteHives) {
-      await idbDelete('hives', hid);
-      const allInsp = await idbGetAll('inspections');
-      for (const insp of allInsp) {
-        if (insp.hive_id === hid) await idbDelete('inspections', insp.id);
-      }
-    }
-    await idbDelete('apiaries', a.id);
-
-    // Refresh UI
-    renderApiaries(await idbGetAll('apiaries'));
-    hivesSection.classList.add('hidden');
-    inspectionsSection.classList.add('hidden');
-    setStatus('Apiario eliminato');
-  } catch (e) {
-    console.error(e);
-    alert('Errore durante eliminazione apiario: ' + (e.message || e));
-  }
-}
 function renderInspections(items) {
   inspectionsList.innerHTML = '';
   items.sort((a,b)=> (b.visited_at||'').localeCompare(a.visited_at||''));
@@ -356,31 +286,3 @@ async function trySync() {
 }
 
 init();
-
-
-async function deleteRemote(table, match) {
-  try {
-    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-    const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const { error } = await supa.from(table).delete().match(match);
-    if (error) throw error;
-    return true;
-  } catch (e) {
-    console.warn('deleteRemote failed, queued to outbox', e);
-    return false;
-  }
-}
-
-if (btnAddApiary) {
-  btnAddApiary.onclick = async () => {
-    if (!sessionUser) return alert('Accedi prima.');
-    const name = prompt('Nome del nuovo apiario:');
-    if (!name) return;
-    const id = uuid();
-    const payload = { id, user_id: sessionUser.id, name, created_at: new Date().toISOString() };
-    await idbPut('apiaries', payload);
-    renderApiaries(await idbGetAll('apiaries'));
-    const ok = await upsertRemote('apiaries', payload);
-    if (!ok) await outboxAdd({ table:'apiaries', op:'upsert', payload });
-  };
-}

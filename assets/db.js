@@ -70,8 +70,3 @@ export function outboxClear() {
     r.onerror = () => rej(r.error);
   });
 }
-
-
-export async function idbBulkDel(storeName, keys) {
-  for (const k of keys) { await idbDel(storeName, k); }
-}
