@@ -41,14 +41,23 @@ const showView = (view) => {
     DOMElements.appContent.classList.toggle('hidden', view !== 'app');
 };
 
-const selectApiary = (apiary) => {
+const selectApiary = async (apiary) => {
     currentApiary = apiary;
     currentHive = null;
     DOMElements.welcomeMessage.classList.add('hidden');
     DOMElements.hivesSection.classList.remove('hidden');
     DOMElements.inspectionsSection.classList.add('hidden');
     DOMElements.currentApiaryName.textContent = apiary.name;
-    renderApiaries();
+    await renderApiaries();
+    await renderHives(); // NUOVO: Mostra gli alveari per l'apiario selezionato
+};
+
+const selectHive = async (hive) => {
+    currentHive = hive;
+    DOMElements.inspectionsSection.classList.remove('hidden');
+    DOMElements.currentHiveCode.textContent = hive.code;
+    await renderHives();
+    // Prossimo passo: renderInspections()
 };
 
 // --- LOGICA DI RENDER ---
@@ -67,24 +76,46 @@ const renderApiaries = async () => {
     });
 };
 
+const renderHives = async () => {
+    if (!currentApiary) return;
+    const allHives = await db.getAll('hives');
+    const hivesOfApiary = allHives.filter(h => h.apiary_id === currentApiary.id);
+
+    DOMElements.hivesList.innerHTML = '';
+    hivesOfApiary.forEach(hive => {
+        const li = document.createElement('li');
+        li.textContent = hive.code;
+        li.dataset.id = hive.id;
+        if (currentHive && currentHive.id === hive.id) {
+            li.classList.add('active');
+        }
+        li.addEventListener('click', () => selectHive(hive));
+        DOMElements.hivesList.appendChild(li);
+    });
+};
+
 // --- GESTIONE DATI ---
 const syncAndFetchData = async () => {
     DOMElements.status.textContent = 'Sincronizzazione...';
     const success = await db.sync(supabaseClient);
-    if (!success) {
-        DOMElements.status.textContent = 'Sincronizzazione fallita';
-    }
-
+    if (!success) DOMElements.status.textContent = 'Sincronizzazione fallita';
+    
     DOMElements.status.textContent = 'Caricamento dati...';
-    const { data, error } = await supabaseClient.from('apiaries').select('*');
-    if (error) {
-        console.error('Errore nel caricare gli apiari:', error);
-        DOMElements.status.textContent = 'Errore caricamento';
-    } else {
-        await db.clearAndInsert('apiaries', data);
-        DOMElements.status.textContent = 'Online';
+    const tables = ['apiaries', 'hives', 'inspections'];
+    for (const table of tables) {
+        const { data, error } = await supabaseClient.from(table).select('*');
+        if (error) {
+            console.error(`Errore nel caricare ${table}:`, error);
+            DOMElements.status.textContent = 'Errore caricamento';
+            return; // Interrompi se c'è un errore
+        } else {
+            await db.clearAndInsert(table, data);
+        }
     }
+    DOMElements.status.textContent = 'Online';
     await renderApiaries();
+    // Se un apiario era già selezionato, ricarica i suoi alveari
+    if (currentApiary) await renderHives();
 };
 
 // --- AUTENTICAZIONE ---
@@ -99,6 +130,8 @@ const handleAuthStateChange = (event, session) => {
         showView('auth');
         DOMElements.authForms.classList.remove('hidden');
         DOMElements.authLogged.classList.add('hidden');
+        currentApiary = null; // Resetta lo stato quando si fa logout
+        currentHive = null;
     }
 };
 
@@ -131,7 +164,20 @@ DOMElements.formApiary.addEventListener('submit', async (e) => {
     
     await db.save('apiaries', { name });
     DOMElements.apiaryNameInput.value = '';
-    await renderApiaries(); 
+    await syncAndFetchData();
+});
+
+DOMElements.formHive.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!currentApiary) {
+        alert('Seleziona prima un apiario!');
+        return;
+    }
+    const code = DOMElements.hiveCodeInput.value.trim();
+    if (!code) return;
+
+    await db.save('hives', { apiary_id: currentApiary.id, code });
+    DOMElements.hiveCodeInput.value = '';
     await syncAndFetchData();
 });
 
