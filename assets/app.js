@@ -1,6 +1,7 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js';
 import * as db from './db.js';
 
+// Accediamo alla variabile globale 'supabase' creata dal tag <script> in index.html
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentApiary = null;
@@ -177,7 +178,55 @@ DOMElements.formApiary.addEventListener('submit', async (e) => {
     const name = DOMElements.apiaryNameInput.value.trim();
     if (!name) return;
     
-    // MODIFICA CHIAVE: Aggiungo lo user_id
     await db.save('apiaries', { name, user_id: user.id });
     DOMElements.apiaryNameInput.value = '';
-    await syncAnd
+    await syncAndFetchData();
+});
+
+DOMElements.formHive.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user || !currentApiary) return;
+
+    const code = DOMElements.hiveCodeInput.value.trim();
+    if (!code) return;
+
+    await db.save('hives', { apiary_id: currentApiary.id, code, user_id: user.id });
+    DOMElements.hiveCodeInput.value = '';
+    await syncAndFetchData();
+});
+
+DOMElements.formInspection.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user || !currentHive) return;
+
+    const form = e.target;
+    const inspectionData = {
+        hive_id: currentHive.id,
+        user_id: user.id,
+        visited_at: new Date().toISOString(),
+        queen_seen: form.querySelector('#queen-seen').checked,
+        eggs: form.querySelector('#eggs').checked,
+        frames_bees: form.querySelector('#frames-bees').valueAsNumber || 0,
+        stores_kg: form.querySelector('#stores-kg').valueAsNumber || 0,
+    };
+
+    await db.save('inspections', inspectionData);
+    form.reset();
+    await syncAndFetchData();
+});
+
+// --- INIZIALIZZAZIONE ---
+const init = async () => {
+    await db.init();
+    
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    handleAuthStateChange(null, session);
+
+    supabaseClient.auth.onAuthStateChange(handleAuthStateChange);
+};
+
+init();
+
+// ASSICURATI DI AVER COPIATO FINO A QUI
