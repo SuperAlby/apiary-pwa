@@ -19,3 +19,41 @@ button.danger { background: var(--danger); }
 .btn-icon { border:1px solid #334155; background:#1f2937; border-radius:8px; padding:4px 6px; cursor:pointer; }
 .btn-icon.danger { background: var(--danger); color:#052525; }
 .hidden { display:none !important; }
+/* Stili per il nuovo Layout a Griglia */
+.container-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr; /* Sidebar fissa, contenuto flessibile */
+  gap: 1.5rem;
+  padding: 1rem;
+  height: calc(100vh - 120px); /* Altezza calcolata per riempire la pagina */
+}
+
+#sidebar {
+  background-color: #f8fafc;
+  border-radius: 8px;
+  padding: 1.5rem;
+  overflow-y: auto; /* Aggiunge scroll se il contenuto è troppo */
+  border: 1px solid #e2e8f0;
+}
+
+#main-content .card {
+  padding: 1.5rem;
+}
+
+#welcome-message {
+  text-align: center;
+  padding: 3rem;
+  color: #64748b;
+}
+
+/* Stili per schermi piccoli (es. smartphone) */
+@media (max-width: 768px) {
+  .container-grid {
+    grid-template-columns: 1fr; /* Colonna singola */
+    height: auto; /* Altezza automatica */
+  }
+
+  #sidebar {
+    overflow-y: visible; /* Rimuove lo scroll verticale */
+  }
+}
