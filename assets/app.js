@@ -1,171 +1,288 @@
-import { createClient } from 'supabase';
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js';
-import * as db from './db.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, APP_NAME } from '../config.js';
+import { openDB, idbPut, idbGetAll, outboxAdd, outboxAll, outboxClear } from './db.js';
 
-// Questa è la riga corretta
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const statusEl = document.getElementById('status');
+const authSection = document.getElementById('auth-section');
+const appSection = document.getElementById('app-section');
+const authForms = document.getElementById('auth-forms');
+const authLogged = document.getElementById('auth-logged');
+const userEmail = document.getElementById('user-email');
+document.getElementById('app-title').textContent = `🐝 ${APP_NAME}`;
+
+const apiariesList = document.getElementById('apiaries-list');
+const formApiary = document.getElementById('form-apiary');
+const formHive = document.getElementById('form-hive');
+const formInspection = document.getElementById('form-inspection');
+const hivesSection = document.getElementById('hives-section');
+const inspectionsSection = document.getElementById('inspections-section');
+const currentApiaryName = document.getElementById('current-apiary-name');
+const currentHiveCode = document.getElementById('current-hive-code');
+const hivesList = document.getElementById('hives-list');
+const inspectionsList = document.getElementById('inspections-list');
+
+let supabase, sessionUser = null;
 let currentApiary = null;
 let currentHive = null;
 
-// --- Elementi DOM ---
-const DOMElements = {
-    // Contenitori principali
-    authContainer: document.getElementById('auth-container'),
-    appContent: document.getElementById('app-content'),
+function setStatus(text, ok=true) {
+  statusEl.textContent = (navigator.onLine ? 'Online' : 'Offline') + ' · ' + text;
+  statusEl.style.borderColor = ok ? '#22c55e' : '#ef4444';
+}
 
-    // Autenticazione (non usati in questa versione)
-    authForms: document.getElementById('auth-forms'),
-    authLogged: document.getElementById('auth-logged'),
-    userEmail: document.getElementById('user-email'),
-    emailInput: document.getElementById('email'),
-    passwordInput: document.getElementById('password'),
-    btnLogin: document.getElementById('btn-login'),
-    btnSignup: document.getElementById('btn-signup'),
-    btnLogout: document.getElementById('btn-logout'),
+window.addEventListener('online', () => { setStatus('Connessione ripristinata'); trySync(); });
+window.addEventListener('offline', () => setStatus('Connessione assente', false));
 
-    // Status
-    status: document.getElementById('status'),
+async function init() {
+  await openDB();
+  setStatus('Avvio...');
+  const mod = await import('https://esm.sh/@supabase/supabase-js@2');
+  supabase = mod.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Apiari
-    formApiary: document.getElementById('form-apiary'),
-    apiaryNameInput: document.getElementById('apiary-name'),
-    apiariesList: document.getElementById('apiaries-list'),
+  // Auth state
+  const { data: { session } } = await supabase.auth.getSession();
+  sessionUser = session?.user ?? null;
+  updateAuthUI();
 
-    // Sezioni principali
-    welcomeMessage: document.getElementById('welcome-message'),
-    hivesSection: document.getElementById('hives-section'),
-    inspectionsSection: document.getElementById('inspections-section'),
+  supabase.auth.onAuthStateChange((_event, sess) => {
+    sessionUser = sess?.user ?? null;
+    updateAuthUI();
+    if (sessionUser) { initialSync(); }
+  });
 
-    // Alveari
-    currentApiaryName: document.getElementById('current-apiary-name'),
-    formHive: document.getElementById('form-hive'),
-    hiveCodeInput: document.getElementById('hive-code'),
-    hivesList: document.getElementById('hives-list'),
+  // Bind forms
+  document.getElementById('btn-signup').addEventListener('click', signup);
+  document.getElementById('btn-login').addEventListener('click', login);
+  document.getElementById('btn-logout').addEventListener('click', logout);
 
-    // Ispezioni
-    currentHiveCode: document.getElementById('current-hive-code'),
-    formInspection: document.getElementById('form-inspection'),
-    inspectionsList: document.getElementById('inspections-list'),
-};
+  formApiary.addEventListener('submit', onAddApiary);
+  formHive.addEventListener('submit', onAddHive);
+  formInspection.addEventListener('submit', onAddInspection);
 
-// --- LOGICA DI RENDER ---
+  // Load local data initially
+  renderApiaries(await idbGetAll('apiaries'));
+}
 
-const renderApiaries = async () => {
-    const apiaries = await db.getAll('apiaries');
-    DOMElements.apiariesList.innerHTML = '';
-    apiaries.forEach(apiary => {
-        const li = document.createElement('li');
-        li.textContent = apiary.name;
-        li.dataset.id = apiary.id;
-        if (currentApiary && currentApiary.id === apiary.id) {
-            li.classList.add('active');
-        }
-        li.addEventListener('click', () => selectApiary(apiary));
-        DOMElements.apiariesList.appendChild(li);
-    });
-};
+function updateAuthUI() {
+  if (sessionUser) {
+    authForms.classList.add('hidden');
+    authLogged.classList.remove('hidden');
+    appSection.classList.remove('hidden');
+    userEmail.textContent = sessionUser.email || sessionUser.id;
+    setStatus('Autenticato');
+  } else {
+    authForms.classList.remove('hidden');
+    authLogged.classList.add('hidden');
+    appSection.classList.add('hidden');
+    setStatus('Non autenticato', false);
+  }
+}
 
-const renderHives = async (apiaryId) => {
-    const allHives = await db.getAll('hives');
-    const hives = allHives.filter(h => h.apiary_id === apiaryId);
-    DOMElements.hivesList.innerHTML = '';
-    hives.forEach(hive => {
-        const li = document.createElement('li');
-        li.textContent = hive.code;
-        li.dataset.id = hive.id;
-        if (currentHive && currentHive.id === hive.id) {
-            li.classList.add('active');
-        }
-        li.addEventListener('click', () => selectHive(hive));
-        DOMElements.hivesList.appendChild(li);
-    });
-};
+async function signup() {
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value.trim();
+  if (!email || !password) return alert('Inserisci email e password');
+  const { error } = await supabase.auth.signUp({ email, password });
+  if (error) return alert(error.message);
+  alert('Registrazione effettuata. Se richiesto, conferma l’email; poi usa Sign in.');
+}
 
-const renderInspections = async (hiveId) => {
-    const allInspections = await db.getAll('inspections');
-    const inspections = allInspections.filter(i => i.hive_id === hiveId).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-    DOMElements.inspectionsList.innerHTML = '';
-    inspections.forEach(insp => {
-        const li = document.createElement('li');
-        const visited = new Date(insp.created_at).toLocaleDateString();
-        li.textContent = `Visita del ${visited} - Regina: ${insp.queen_seen ? '✔️' : '❌'}, Uova: ${insp.eggs ? '✔️' : '❌'}`;
-        DOMElements.inspectionsList.appendChild(li);
-    });
-};
+async function login() {
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value.trim();
+  if (!email || !password) return alert('Inserisci email e password');
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) return alert(error.message);
+}
 
-// --- LOGICA DI VISUALIZZAZIONE ---
+async function logout() {
+  await supabase.auth.signOut();
+}
 
-const selectApiary = (apiary) => {
-    currentApiary = apiary;
-    currentHive = null;
-    DOMElements.welcomeMessage.classList.add('hidden');
-    DOMElements.hivesSection.classList.remove('hidden');
-    DOMElements.inspectionsSection.classList.add('hidden');
-    DOMElements.currentApiaryName.textContent = apiary.name;
-    renderApiaries();
-    renderHives(apiary.id);
-};
+function uuid() {
+  if (crypto?.randomUUID) return crypto.randomUUID();
+  return 'id-' + Math.random().toString(36).slice(2) + Date.now();
+}
 
-const selectHive = (hive) => {
-    currentHive = hive;
-    DOMElements.inspectionsSection.classList.remove('hidden');
-    DOMElements.currentHiveCode.textContent = hive.code;
-    renderHives(currentApiary.id);
-    renderInspections(hive.id);
-};
+async function onAddApiary(e) {
+  e.preventDefault();
+  if (!sessionUser) return alert('Accedi prima.');
+  const id = uuid();
+  const payload = {
+    id,
+    user_id: sessionUser.id,
+    name: document.getElementById('apiary-name').value.trim(),
+    lat: parseFloat(document.getElementById('apiary-lat').value) || null,
+    lon: parseFloat(document.getElementById('apiary-lon').value) || null,
+    note: document.getElementById('apiary-note').value.trim() || null,
+    created_at: new Date().toISOString()
+  };
+  await idbPut('apiaries', payload);
+  renderApiaries(await idbGetAll('apiaries'));
+  formApiary.reset();
+  // Try remote
+  const ok = await upsertRemote('apiaries', payload);
+  if (!ok) await outboxAdd({ table:'apiaries', op:'upsert', payload });
+}
 
-// --- EVENT LISTENERS (SOLO PER I FORM) ---
+async function onAddHive(e) {
+  e.preventDefault();
+  if (!sessionUser || !currentApiary) return alert('Seleziona un apiario e accedi.');
+  const id = uuid();
+  const payload = {
+    id,
+    user_id: sessionUser.id,
+    apiary_id: currentApiary.id,
+    code: document.getElementById('hive-code').value.trim(),
+    queen_birth_date: document.getElementById('hive-queen-birth').value || null,
+    note: document.getElementById('hive-note').value.trim() || null,
+    created_at: new Date().toISOString()
+  };
+  await idbPut('hives', payload);
+  renderHives(await idbGetAll('hives').then(arr => arr.filter(h => h.apiary_id === currentApiary.id)));
+  formHive.reset();
+  const ok = await upsertRemote('hives', payload);
+  if (!ok) await outboxAdd({ table:'hives', op:'upsert', payload });
+}
 
-DOMElements.formApiary.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const name = DOMElements.apiaryNameInput.value.trim();
-    if (!name) return;
-    await db.save('apiaries', { name, created_at: new Date().toISOString() });
-    DOMElements.formApiary.reset();
-    await renderApiaries();
-});
+async function onAddInspection(e) {
+  e.preventDefault();
+  if (!sessionUser || !currentHive) return alert('Seleziona un alveare e accedi.');
+  const id = uuid();
+  const payload = {
+    id,
+    user_id: sessionUser.id,
+    hive_id: currentHive.id,
+    visited_at: new Date().toISOString(),
+    queen_seen: document.getElementById('queen-seen').checked,
+    eggs: document.getElementById('eggs').checked,
+    frames_bees: parseInt(document.getElementById('frames-bees').value || '0', 10),
+    stores_kg: parseFloat(document.getElementById('stores-kg').value || '0'),
+    note: document.getElementById('inspection-note').value.trim() || null,
+    created_at: new Date().toISOString()
+  };
+  await idbPut('inspections', payload);
+  renderInspections(await idbGetAll('inspections').then(arr => arr.filter(x => x.hive_id === currentHive.id)));
+  formInspection.reset();
+  const ok = await upsertRemote('inspections', payload);
+  if (!ok) await outboxAdd({ table:'inspections', op:'upsert', payload });
+}
 
-DOMElements.formHive.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const code = DOMElements.hiveCodeInput.value.trim();
-    if (!code || !currentApiary) return;
-    await db.save('hives', { apiary_id: currentApiary.id, code, created_at: new Date().toISOString() });
-    DOMElements.formHive.reset();
-    await renderHives(currentApiary.id);
-});
+async function upsertRemote(table, payload) {
+  if (!navigator.onLine || !sessionUser) return false;
+  try {
+    const { error } = await supabase.from(table).upsert(payload).select('id').single();
+    if (error) {
+      console.warn('Remote upsert error', error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn('Remote upsert failed', e.message);
+    return false;
+  }
+}
 
-DOMElements.formInspection.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!currentHive) return;
-    const form = e.target;
-    const inspection = {
-        hive_id: currentHive.id,
-        created_at: new Date().toISOString(),
-        queen_seen: form.querySelector('#queen-seen').checked,
-        eggs: form.querySelector('#eggs').checked,
-        frames_bees: form.querySelector('#frames-bees').valueAsNumber || 0,
-        stores_kg: form.querySelector('#stores-kg').valueAsNumber || 0,
-    };
-    await db.save('inspections', inspection);
-    form.reset();
-    await renderInspections(currentHive.id);
-});
+function renderApiaries(items) {
+  apiariesList.innerHTML = '';
+  items.sort((a,b) => (a.created_at||'').localeCompare(b.created_at||''));
+  for (const a of items) {
+    const li = document.createElement('li');
+    const left = document.createElement('div');
+    left.innerHTML = `<strong>${a.name}</strong> <span class="badge">${a.lat ?? '-'}, ${a.lon ?? '-'}</span><br><small>${a.note ?? ''}</small>`;
+    const right = document.createElement('div');
+    const btn = document.createElement('button');
+    btn.textContent = 'Apri';
+    btn.className = 'primary';
+    btn.onclick = () => selectApiary(a);
+    right.appendChild(btn);
+    li.appendChild(left);
+    li.appendChild(right);
+    apiariesList.appendChild(li);
+  }
+}
 
-// --- INIZIALIZZAZIONE ---
+function renderHives(items) {
+  hivesList.innerHTML = '';
+  for (const h of items) {
+    const li = document.createElement('li');
+    const left = document.createElement('div');
+    left.innerHTML = `<strong>${h.code}</strong> <span class="badge">${h.queen_birth_date ?? ''}</span><br><small>${h.note ?? ''}</small>`;
+    const right = document.createElement('div');
+    const btn = document.createElement('button');
+    btn.textContent = 'Ispezioni';
+    btn.onclick = () => selectHive(h);
+    right.appendChild(btn);
+    li.appendChild(left);
+    li.appendChild(right);
+    hivesList.appendChild(li);
+  }
+}
 
-const updateStatus = () => {
-    const online = navigator.onLine;
-    DOMElements.status.textContent = online ? 'Online (Sincronizzazione Disattivata)' : 'Offline';
-    DOMElements.status.style.color = online ? 'orange' : 'salmon';
-};
+function renderInspections(items) {
+  inspectionsList.innerHTML = '';
+  items.sort((a,b)=> (b.visited_at||'').localeCompare(a.visited_at||''));
+  for (const i of items) {
+    const li = document.createElement('li');
+    const left = document.createElement('div');
+    left.innerHTML = `<strong>${new Date(i.visited_at).toLocaleString()}</strong> 
+      <span class="badge">Regina: ${i.queen_seen ? '✓' : '—'}</span> 
+      <span class="badge">Uova: ${i.eggs ? '✓' : '—'}</span> 
+      <span class="badge">Telaini api: ${i.frames_bees ?? 0}</span> 
+      <span class="badge">Scorte: ${i.stores_kg ?? 0} kg</span><br>
+      <small>${i.note ?? ''}</small>`;
+    li.appendChild(left);
+    inspectionsList.appendChild(li);
+  }
+}
 
-const init = async () => {
-    await db.init();
-    updateStatus();
-    window.addEventListener('online', updateStatus);
-    window.addEventListener('offline', updateStatus);
-    
-    await renderApiaries(); 
-};
+async function selectApiary(a) {
+  currentApiary = a;
+  currentApiaryName.textContent = a.name;
+  hivesSection.classList.remove('hidden');
+  inspectionsSection.classList.add('hidden');
+  const all = await idbGetAll('hives');
+  renderHives(all.filter(h => h.apiary_id === a.id));
+}
+
+async function selectHive(h) {
+  currentHive = h;
+  currentHiveCode.textContent = h.code;
+  inspectionsSection.classList.remove('hidden');
+  const all = await idbGetAll('inspections');
+  renderInspections(all.filter(x => x.hive_id === h.id));
+}
+
+async function initialSync() {
+  if (!navigator.onLine || !sessionUser) return;
+  setStatus('Sincronizzazione...');
+  try {
+    // push outbox first
+    await trySync();
+
+    // pull latest from remote
+    const tables = ['apiaries','hives','inspections'];
+    for (const t of tables) {
+      const { data, error } = await supabase.from(t).select('*').order('created_at', { ascending: true });
+      if (error) throw error;
+      // replace local copy
+      for (const row of data) await idbPut(t, row);
+    }
+    renderApiaries(await idbGetAll('apiaries'));
+    setStatus('Sincronizzato');
+  } catch (e) {
+    console.warn('Sync error', e.message);
+    setStatus('Sync parziale', false);
+  }
+}
+
+async function trySync() {
+  if (!navigator.onLine || !sessionUser) return;
+  const actions = await outboxAll();
+  if (!actions.length) return;
+  for (const a of actions) {
+    await upsertRemote(a.table, a.payload);
+  }
+  await outboxClear();
+}
 
 init();
