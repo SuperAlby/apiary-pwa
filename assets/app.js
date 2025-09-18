@@ -1,7 +1,8 @@
+import { createClient } from 'supabase';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js';
 import * as db from './db.js';
 
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); // Usa la funzione importata
 let currentApiary = null;
 let currentHive = null;
 
