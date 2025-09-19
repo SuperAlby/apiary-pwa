@@ -4,99 +4,44 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0f766e" />
+
+  <title>Apiary Manager</title>
+
+  <!-- PWA -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" href="./icons/icon-192.png" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
-  <title>Apiary Manager</title>
-  <link rel="stylesheet" href="./assets/styles.css" />
 
+  <!-- Stili -->
+  <link rel="stylesheet" href="./assets/styles.css" />
 </head>
 <body>
-  <header class="app-header">
-    <h1 id="app-title">🐝 Apiary Manager</h1>
-    <div id="status" class="status">...</div>
-  </header>
 
-  <main class="container" id="auth-container">
-    <section id="auth-section" class="card">
-      <h2>Autenticazione</h2>
-      <div id="auth-forms">
-        <div class="form-row">
-          <label>Email</label>
-          <input id="email" type="email" placeholder="you@example.com" autocomplete="username" />
-        </div>
-        <div class="form-row">
-          <label>Password</label>
-          <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
-        </div>
-        <div class="btn-row">
-          <button id="btn-signup">Sign up</button>
-          <button id="btn-login" class="primary">Sign in</button>
-        </div>
-      </div>
-      <div class="btn-row hidden" id="auth-logged">
-        <span id="user-email"></span>
-        <button id="btn-logout" class="danger">Sign out</button>
-      </div>
-    </section>
+  <!-- (Opzionale) contenitore principale della UI -->
+  <main id="main">
+    <!-- qui resta il tuo markup corrente, se presente -->
   </main>
 
-  <main class="container-grid hidden" id="app-content">
-    <aside id="sidebar">
-      <div class="sidebar-content">
-        <h2>Apiari</h2>
-        <form id="form-apiary">
-          <input id="apiary-name" type="text" placeholder="Nome nuovo apiario" required />
-          <button type="submit" class="primary">+ Aggiungi</button>
-        </form>
-        <ul id="apiaries-list" class="list"></ul>
-      </div>
-    </aside>
-  
-    <div id="main-content">
-      <section class="card">
-        <div id="hives-section" class="subsection hidden">
-          <h3>Apiario: <span id="current-apiary-name"></span></h3>
-          <form id="form-hive">
-            <input id="hive-code" type="text" placeholder="Codice nuovo alveare" required />
-            <button type="submit" class="primary">+ Aggiungi</button>
-          </form>
-          <ul id="hives-list" class="list"></ul>
-        </div>
-  
-        <div id="inspections-section" class="subsection hidden">
-          <h3>Alveare: <span id="current-hive-code"></span></h3>
-          <form id="form-inspection">
-            <label><input type="checkbox" id="queen-seen" /> Regina</label>
-            <label><input type="checkbox" id="eggs" /> Uova</label>
-            <input id="frames-bees" type="number" min="0" max="20" placeholder="Telaini api" />
-            <input id="stores-kg" type="number" step="0.1" placeholder="Scorte (kg)" />
-            <button type="submit" class="primary">+ Registra</button>
-          </form>
-          <ul id="inspections-list" class="list"></ul>
-        </div>
-  
-        <div id="welcome-message">
-          <p>👋 Seleziona un apiario dalla lista a sinistra per iniziare, oppure creane uno nuovo.</p>
-        </div>
-      </section>
-    </div>
-  </main>
+  <noscript>Per usare questa app è necessario abilitare JavaScript.</noscript>
 
-  <footer class="app-footer">
-    <small>Starter PWA · Offline-first · Supabase</small>
-  </footer>
-  
+  <!-- Supabase (CDN) — se avevi già un tag simile, lascia SOLO UNO dei due -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  
+
+  <!-- Config e DB (devono restare) -->
   <script type="module" src="./config.js"></script>
   <script type="module" src="./assets/db.js"></script>
+
+  <!-- Logica principale -->
   <script type="module" src="./assets/app.js"></script>
+
+  <!-- I18n + UX (nuovi) -->
+  <script type="module" src="./assets/i18n.js"></script>
+  <script type="module" src="./assets/ux.js"></script>
+
+  <!-- Registrazione Service Worker -->
   <script>
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(console.error);
-      });
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
     }
   </script>
 </body>
