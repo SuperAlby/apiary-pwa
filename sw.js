@@ -1,4 +1,7 @@
-const CACHE = 'apiary-pwa-v1';
+// Cambia il numero di versione ad ogni deploy
+const CACHE_VERSION = 'v2'; // <--- incrementa quando vuoi forzare update
+const CACHE_NAME = `apiary-pwa-${CACHE_VERSION}`;
+
 const ASSETS = [
   './',
   './index.html',
@@ -11,26 +14,35 @@ const ASSETS = [
   './icons/icon-512.png'
 ];
 
+// Install: precarica asset
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
+  );
   self.skipWaiting();
 });
 
+// Activate: elimina le vecchie cache
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    )
+  );
+  self.clients.claim();
 });
 
+// Fetch: network-first con fallback cache
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
+
   event.respondWith(
-    caches.match(req).then(cached => {
-      const fetchPromise = fetch(req).then(networkRes => {
-        const copy = networkRes.clone();
-        caches.open(CACHE).then(cache => cache.put(req, copy)).catch(()=>{});
-        return networkRes;
-      }).catch(() => cached);
-      return cached || fetchPromise;
-    })
+    fetch(req).then(networkRes => {
+      // aggiorna la cache in background
+      const copy = networkRes.clone();
+      caches.open(CACHE_NAME).then(cache => cache.put(req, copy)).catch(() => {});
+      return networkRes;
+    }).catch(() => caches.match(req))
   );
 });
