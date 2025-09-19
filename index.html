@@ -42,8 +42,9 @@
   <!-- Service Worker -->
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js').catch(() => {});
+      navigator.serviceWorker.register('/api/sw', { scope: '/' }).catch(()=>{});
     }
   </script>
 </body>
 </html>
+
