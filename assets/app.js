@@ -1,232 +1,177 @@
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js';
-import * as db from './db.js';
+// assets/app.js
 
-// Access the global 'supabase' variable created by the script tag in index.html
+// Inizializzazione Supabase
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Riferimenti agli elementi DOM (alcuni potrebbero non esistere sempre)
+const DOMElements = {
+  authContainer: document.getElementById('auth-container'),
+  appContent: document.getElementById('app-content'),
+  authForms: document.getElementById('auth-forms'),
+  authLogged: document.getElementById('auth-logged'),
+  userEmail: document.getElementById('user-email'),
+  emailInput: document.getElementById('email'),
+  passwordInput: document.getElementById('password'),
+  btnLogin: document.getElementById('btn-login'),
+  btnSignup: document.getElementById('btn-signup'),
+  btnLogout: document.getElementById('btn-logout'),
+  status: document.getElementById('status'),
+  formApiary: document.getElementById('form-apiary'),
+  apiaryName: document.getElementById('apiary-name'),
+  apiariesList: document.getElementById('apiaries-list'),
+  currentApiaryName: document.getElementById('current-apiary-name'),
+  welcomeMessage: document.getElementById('welcome-message'),
+  hivesSection: document.getElementById('hives-section'),
+  formHive: document.getElementById('form-hive'),
+  hiveCode: document.getElementById('hive-code'),
+  hivesList: document.getElementById('hives-list'),
+  inspectionsSection: document.getElementById('inspections-section'),
+  currentHiveCode: document.getElementById('current-hive-code'),
+  formInspection: document.getElementById('form-inspection'),
+  inspectionsList: document.getElementById('inspections-list'),
+};
+
+// Helper: attacca un listener solo se l'elemento esiste
+const on = (el, ev, handler) => { if (el) el.addEventListener(ev, handler); };
+
+// Stato globale
 let currentApiary = null;
 let currentHive = null;
 
-// --- DOM Elements ---
-const DOMElements = {
-    authContainer: document.getElementById('auth-container'),
-    appContent: document.getElementById('app-content'),
-    authForms: document.getElementById('auth-forms'),
-    authLogged: document.getElementById('auth-logged'),
-    userEmail: document.getElementById('user-email'),
-    emailInput: document.getElementById('email'),
-    passwordInput: document.getElementById('password'),
-    btnLogin: document.getElementById('btn-login'),
-    btnSignup: document.getElementById('btn-signup'),
-    btnLogout: document.getElementById('btn-logout'),
-    status: document.getElementById('status'),
-    formApiary: document.getElementById('form-apiary'),
-    apiaryNameInput: document.getElementById('apiary-name'),
-    apiariesList: document.getElementById('apiaries-list'),
-    welcomeMessage: document.getElementById('welcome-message'),
-    hivesSection: document.getElementById('hives-section'),
-    inspectionsSection: document.getElementById('inspections-section'),
-    currentApiaryName: document.getElementById('current-apiary-name'),
-    formHive: document.getElementById('form-hive'),
-    hiveCodeInput: document.getElementById('hive-code'),
-    hivesList: document.getElementById('hives-list'),
-    currentHiveCode: document.getElementById('current-hive-code'),
-    formInspection: document.getElementById('form-inspection'),
-    inspectionsList: document.getElementById('inspections-list'),
-};
+// ========== FUNZIONI UI ==========
+function showStatus(msg) {
+  if (DOMElements.status) DOMElements.status.textContent = msg;
+}
+function showSection(section) {
+  if (DOMElements.authContainer) DOMElements.authContainer.style.display = (section === 'auth') ? 'block' : 'none';
+  if (DOMElements.appContent) DOMElements.appContent.style.display = (section === 'app') ? 'block' : 'none';
+}
+function renderApiaries(apiaries) {
+  if (!DOMElements.apiariesList) return;
+  DOMElements.apiariesList.innerHTML = '';
+  apiaries.forEach(a => {
+    const li = document.createElement('li');
+    li.textContent = a.name;
+    li.addEventListener('click', () => selectApiary(a));
+    DOMElements.apiariesList.appendChild(li);
+  });
+}
+function renderHives(hives) {
+  if (!DOMElements.hivesList) return;
+  DOMElements.hivesList.innerHTML = '';
+  hives.forEach(h => {
+    const li = document.createElement('li');
+    li.textContent = h.label;
+    li.addEventListener('click', () => selectHive(h));
+    DOMElements.hivesList.appendChild(li);
+  });
+}
+function renderInspections(inspections) {
+  if (!DOMElements.inspectionsList) return;
+  DOMElements.inspectionsList.innerHTML = '';
+  inspections.forEach(ins => {
+    const li = document.createElement('li');
+    li.textContent = `${ins.inspected_at}: regina ${ins.queen_seen ? 'vista' : 'no'}`;
+    DOMElements.inspectionsList.appendChild(li);
+  });
+}
 
-// --- View Logic ---
-const showView = (view) => {
-    DOMElements.authContainer.classList.toggle('hidden', view !== 'auth');
-    DOMElements.appContent.classList.toggle('hidden', view !== 'app');
-};
+// ========== FUNZIONI DATI ==========
+async function loadApiaries() {
+  const { data, error } = await supabaseClient.from('apiaries').select('*').order('created_at', { ascending: false });
+  if (!error) renderApiaries(data);
+}
+async function selectApiary(apiary) {
+  currentApiary = apiary;
+  if (DOMElements.currentApiaryName) DOMElements.currentApiaryName.textContent = apiary.name;
+  if (DOMElements.welcomeMessage) DOMElements.welcomeMessage.textContent = `Apiario: ${apiary.name}`;
+  await loadHives(apiary.id);
+}
+async function loadHives(apiaryId) {
+  const { data, error } = await supabaseClient.from('hives').select('*').eq('apiary_id', apiaryId);
+  if (!error) renderHives(data);
+}
+async function selectHive(hive) {
+  currentHive = hive;
+  if (DOMElements.currentHiveCode) DOMElements.currentHiveCode.textContent = hive.label;
+  await loadInspections(hive.id);
+}
+async function loadInspections(hiveId) {
+  const { data, error } = await supabaseClient.from('inspections').select('*').eq('hive_id', hiveId);
+  if (!error) renderInspections(data);
+}
 
-const selectApiary = async (apiary) => {
-    currentApiary = apiary;
-    currentHive = null;
-    DOMElements.welcomeMessage.classList.add('hidden');
-    DOMElements.hivesSection.classList.remove('hidden');
-    DOMElements.inspectionsSection.classList.add('hidden');
-    DOMElements.currentApiaryName.textContent = apiary.name;
-    await renderApiaries();
-    await renderHives();
-};
+// ========== LISTENER ==========
+on(DOMElements.btnLogout, 'click', async () => {
+  await supabaseClient.auth.signOut();
+});
 
-const selectHive = async (hive) => {
-    currentHive = hive;
-    DOMElements.inspectionsSection.classList.remove('hidden');
-    DOMElements.currentHiveCode.textContent = hive.code;
-    await renderHives();
-    await renderInspections();
-};
-
-// --- Render Logic ---
-const renderApiaries = async () => {
-    const apiaries = await db.getAll('apiaries');
-    DOMElements.apiariesList.innerHTML = '';
-    apiaries.forEach(apiary => {
-        const li = document.createElement('li');
-        li.textContent = apiary.name;
-        li.dataset.id = apiary.id;
-        if (currentApiary && currentApiary.id === apiary.id) {
-            li.classList.add('active');
-        }
-        li.addEventListener('click', () => selectApiary(apiary));
-        DOMElements.apiariesList.appendChild(li);
-    });
-};
-
-const renderHives = async () => {
-    if (!currentApiary) return;
-    const allHives = await db.getAll('hives');
-    const hivesOfApiary = allHives.filter(h => h.apiary_id === currentApiary.id);
-
-    DOMElements.hivesList.innerHTML = '';
-    hivesOfApiary.forEach(hive => {
-        const li = document.createElement('li');
-        li.textContent = hive.code;
-        li.dataset.id = hive.id;
-        if (currentHive && currentHive.id === hive.id) {
-            li.classList.add('active');
-        }
-        li.addEventListener('click', () => selectHive(hive));
-        DOMElements.hivesList.appendChild(li);
-    });
-};
-
-const renderInspections = async () => {
-    if (!currentHive) return;
-    const allInspections = await db.getAll('inspections');
-    const inspectionsOfHive = allInspections.filter(i => i.hive_id === currentHive.id).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-
-    DOMElements.inspectionsList.innerHTML = '';
-    inspectionsOfHive.forEach(insp => {
-        const li = document.createElement('li');
-        const visited = new Date(insp.visited_at || insp.created_at).toLocaleDateString();
-        li.innerHTML = `Visita del ${visited} - 👑: ${insp.queen_seen ? '✔️' : '❌'}, 🥚: ${insp.eggs ? '✔️' : '❌'}`;
-        DOMElements.inspectionsList.appendChild(li);
-    });
-};
-
-// --- Data Management ---
-const syncAndFetchData = async () => {
-    DOMElements.status.textContent = 'Sincronizzazione...';
-    await db.sync(supabaseClient);
-    
-    DOMElements.status.textContent = 'Caricamento dati...';
-    const tables = ['apiaries', 'hives', 'inspections'];
-    for (const table of tables) {
-        const { data, error } = await supabaseClient.from(table).select('*');
-        if (error) {
-            console.error(`Error loading ${table}:`, error);
-            DOMElements.status.textContent = 'Errore caricamento';
-            return;
-        } else {
-            await db.clearAndInsert(table, data);
-        }
+on(DOMElements.formApiary, 'submit', async (e) => {
+  e.preventDefault();
+  const name = DOMElements.apiaryName?.value;
+  if (name) {
+    const { error } = await supabaseClient.from('apiaries').insert({ name });
+    if (!error) {
+      DOMElements.apiaryName.value = '';
+      await loadApiaries();
     }
-    DOMElements.status.textContent = 'Online';
-    await renderApiaries();
-    if (currentApiary) await renderHives();
-    if (currentHive) await renderInspections();
-};
+  }
+});
 
-// --- Authentication ---
-const handleAuthStateChange = (event, session) => {
-    if (session) {
-        showView('app');
-        DOMElements.authForms.classList.add('hidden');
-        DOMElements.authLogged.classList.remove('hidden');
-        DOMElements.userEmail.textContent = session.user.email;
-        syncAndFetchData();
-    } else {
-        showView('auth');
-        DOMElements.authForms.classList.remove('hidden');
-        DOMElements.authLogged.classList.add('hidden');
-        currentApiary = null;
-        currentHive = null;
+on(DOMElements.formHive, 'submit', async (e) => {
+  e.preventDefault();
+  const label = DOMElements.hiveCode?.value;
+  if (label && currentApiary) {
+    const { error } = await supabaseClient.from('hives').insert({ apiary_id: currentApiary.id, label });
+    if (!error) {
+      DOMElements.hiveCode.value = '';
+      await loadHives(currentApiary.id);
     }
-};
+  }
+});
 
-// --- Event Listeners ---
-DOMElements.btnLogin.addEventListener('click', async () => {
-    const { error } = await supabaseClient.auth.signInWithPassword({
-        email: DOMElements.emailInput.value,
-        password: DOMElements.passwordInput.value,
+on(DOMElements.formInspection, 'submit', async (e) => {
+  e.preventDefault();
+  if (currentHive) {
+    const { error } = await supabaseClient.from('inspections').insert({
+      hive_id: currentHive.id,
+      inspected_at: new Date().toISOString().slice(0, 10),
+      queen_seen: true,
     });
-    if (error) alert(error.message);
+    if (!error) await loadInspections(currentHive.id);
+  }
 });
 
-DOMElements.btnSignup.addEventListener('click', async () => {
-    const { error } = await supabaseClient.auth.signUp({
-        email: DOMElements.emailInput.value,
-        password: DOMElements.passwordInput.value,
-    });
-    if (error) alert(error.message);
-    else alert('Account created! You can now Sign in.');
+// ========== AUTENTICAZIONE ==========
+supabaseClient.auth.onAuthStateChange((event, session) => {
+  if (session) {
+    showSection('app');
+    if (DOMElements.userEmail) DOMElements.userEmail.textContent = session.user.email;
+    loadApiaries();
+  } else {
+    showSection('auth');
+  }
 });
 
-DOMElements.btnLogout.addEventListener('click', async () => {
-    await supabaseClient.auth.signOut();
+// Login e signup
+on(DOMElements.btnLogin, 'click', async () => {
+  const email = DOMElements.emailInput?.value;
+  const password = DOMElements.passwordInput?.value;
+  if (email && password) {
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) showStatus('Login fallito');
+  }
 });
 
-DOMElements.formApiary.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) return alert('You must be logged in to add an apiary.');
-
-    const name = DOMElements.apiaryNameInput.value.trim();
-    if (!name) return;
-    
-    // KEY CHANGE: Adding the user_id
-    await db.save('apiaries', { name, user_id: user.id });
-    DOMElements.apiaryNameInput.value = '';
-    await syncAndFetchData();
+on(DOMElements.btnSignup, 'click', async () => {
+  const email = DOMElements.emailInput?.value;
+  const password = DOMElements.passwordInput?.value;
+  if (email && password) {
+    const { error } = await supabaseClient.auth.signUp({ email, password });
+    if (error) showStatus('Signup fallita');
+  }
 });
 
-DOMElements.formHive.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user || !currentApiary) return;
-
-    const code = DOMElements.hiveCodeInput.value.trim();
-    if (!code) return;
-
-    // KEY CHANGE: Adding the user_id
-    await db.save('hives', { apiary_id: currentApiary.id, code, user_id: user.id });
-    DOMElements.hiveCodeInput.value = '';
-    await syncAndFetchData();
-});
-
-DOMElements.formInspection.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user || !currentHive) return;
-
-    const form = e.target;
-    const inspectionData = {
-        hive_id: currentHive.id,
-        user_id: user.id, // KEY CHANGE: Adding the user_id
-        visited_at: new Date().toISOString(),
-        queen_seen: form.querySelector('#queen-seen').checked,
-        eggs: form.querySelector('#eggs').checked,
-        frames_bees: form.querySelector('#frames-bees').valueAsNumber || 0,
-        stores_kg: form.querySelector('#stores-kg').valueAsNumber || 0,
-    };
-
-    await db.save('inspections', inspectionData);
-    form.reset();
-    await syncAndFetchData();
-});
-
-// --- Initialization ---
-const init = async () => {
-    await db.init();
-    
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    handleAuthStateChange(null, session);
-
-    supabaseClient.auth.onAuthStateChange(handleAuthStateChange);
-};
-
-init();
+// Avvio
+showStatus('Pronto');
