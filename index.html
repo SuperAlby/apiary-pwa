@@ -24,25 +24,24 @@
 
   <noscript>Per usare questa app è necessario abilitare JavaScript.</noscript>
 
-  <!-- Supabase (CDN) — se avevi già un tag simile, lascia SOLO UNO dei due -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Supabase CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <!-- Config e DB (devono restare) -->
-  <script type="module" src="./config.js"></script>
-  <script type="module" src="./assets/db.js"></script>
+<!-- Moduli dell’app -->
+<script type="module" src="./config.js"></script>
+<script type="module" src="./assets/db.js"></script>
+<script type="module" src="./assets/app.js"></script>
 
-  <!-- Logica principale -->
-  <script type="module" src="./assets/app.js"></script>
+<!-- (facoltativi ma consigliati) migliorìe UX -->
+<script type="module" src="./assets/i18n.js"></script>
+<script type="module" src="./assets/ux.js"></script>
 
-  <!-- I18n + UX (nuovi) -->
-  <script type="module" src="./assets/i18n.js"></script>
-  <script type="module" src="./assets/ux.js"></script>
-
-  <!-- Registrazione Service Worker -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js').catch(() => {});
-    }
-  </script>
+<!-- Service Worker -->
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+</script>
 </body>
 </html>
+
