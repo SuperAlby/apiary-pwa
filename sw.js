@@ -1,5 +1,9 @@
-// Cambia il numero di versione ad ogni deploy
-const CACHE_VERSION = 'v2'; // <--- incrementa quando vuoi forzare update
+// Usa la SHA del commit di Vercel, se disponibile
+// Vercel espone questa variabile d’ambiente: VERCEL_GIT_COMMIT_SHA
+const CACHE_VERSION = (typeof VERCEL_GIT_COMMIT_SHA !== 'undefined' && VERCEL_GIT_COMMIT_SHA)
+  ? VERCEL_GIT_COMMIT_SHA.substring(0, 8) // primi 8 caratteri della SHA
+  : 'dev'; // fallback se in locale
+
 const CACHE_NAME = `apiary-pwa-${CACHE_VERSION}`;
 
 const ASSETS = [
